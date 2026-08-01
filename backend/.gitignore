@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# File uploads & storage
+uploads/
+/var/www/broo-attachments/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Operating System Files
+.DS_Store
+Thumbs.db
