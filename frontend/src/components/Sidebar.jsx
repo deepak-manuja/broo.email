@@ -35,13 +35,20 @@ export default function Sidebar({
 
   useEffect(() => {
     userAPI.getStorage()
-      .then((res) => setStorage(res.data))
+      .then((res) => {
+        const used = Number(res.data.usedBytes ?? res.data.used ?? 0);
+        const limit = Number(res.data.limitBytes ?? res.data.limit ?? 104857600);
+        setStorage({ used, limit });
+      })
       .catch(() => {});
   }, []);
 
-  const usedMB = (storage.used / (1024 * 1024)).toFixed(1);
-  const limitMB = (storage.limit / (1024 * 1024)).toFixed(0);
-  const pct = Math.min(Math.round((storage.used / (storage.limit || 1)) * 100), 100);
+  const usedMB = ((storage.used || 0) / (1024 * 1024)).toFixed(1);
+  const limitMB = ((storage.limit || 104857600) / (1024 * 1024)).toFixed(0);
+  const pct = Math.min(
+    Math.round(((storage.used || 0) / (storage.limit || 104857600)) * 100),
+    100
+  );
 
   const handleLogout = () => {
     logout();

@@ -66,11 +66,15 @@ exports.getStorageUsage = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const percentUsed = (user.storageUsedBytes / user.storageLimit) * 100;
+    const used = Number(user.storageUsedBytes || 0);
+    const limit = Number(user.storageLimit || 104857600);
+    const percentUsed = limit > 0 ? (used / limit) * 100 : 0;
 
     res.json({
-      usedBytes: user.storageUsedBytes,
-      limitBytes: user.storageLimit,
+      used,
+      limit,
+      usedBytes: used,
+      limitBytes: limit,
       percentUsed: parseFloat(percentUsed.toFixed(2))
     });
   } catch (error) {

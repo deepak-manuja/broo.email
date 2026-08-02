@@ -114,7 +114,16 @@ export default function EmailView({
     e.preventDefault();
     if (!quickReplyText.trim()) return;
 
-    const toAddress = email.from?.address || email.from;
+    const directAddress = email.from?.address;
+    const fromString = typeof email.from === 'string' ? email.from : '';
+    const extractedAddress = fromString.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] || '';
+    const toAddress = directAddress || extractedAddress;
+
+    if (!toAddress || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toAddress)) {
+      toast.error('This message has no valid sender email address to reply to.');
+      return;
+    }
+
     const replySubject = email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`;
 
     setSendingQuickReply(true);
