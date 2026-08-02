@@ -24,6 +24,21 @@ function timeAgo(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function formatRecipientDisplay(to) {
+  if (!to) return 'Unknown Recipient';
+  if (Array.isArray(to)) {
+    if (to.length === 0) return 'Unknown Recipient';
+    const first = to[0];
+    const firstStr = typeof first === 'string' ? first : (first?.name || first?.address || 'Unknown');
+    if (to.length === 1) return firstStr;
+    return `${firstStr} (+${to.length - 1})`;
+  }
+  if (typeof to === 'object') {
+    return to.name || to.address || 'Unknown';
+  }
+  return String(to);
+}
+
 // Deterministic avatar color from string
 const AVATAR_COLORS = [
   'bg-orange-100 text-orange-700 border-orange-200',
@@ -279,10 +294,15 @@ export default function EmailList({
           displayedEmails.map((email) => {
             const isSelected = selectedIds.has(email._id) || email._id === selectedEmailId;
             const isRead = email.isRead;
+            const isSent = folder === 'sent' || email.folder === 'sent';
+            const recipientText = formatRecipientDisplay(email.to);
             const senderRaw = email.from?.name || email.from?.address || email.from || 'Unknown Sender';
             const senderName = typeof senderRaw === 'string' ? senderRaw : (senderRaw.name || senderRaw.address || 'Unknown');
-            const initial = (senderName.charAt(0) || 'U').toUpperCase();
-            const avatarColorClass = getAvatarStyle(senderName);
+            
+            const displayTitle = isSent ? `To: ${recipientText}` : senderName;
+            const avatarSeed = isSent ? recipientText : senderName;
+            const initial = (avatarSeed.replace(/^[<"'\s]+/, '').charAt(0) || 'U').toUpperCase();
+            const avatarColorClass = getAvatarStyle(avatarSeed);
 
             return (
               <div
@@ -300,7 +320,7 @@ export default function EmailList({
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  {/* Sender Avatar */}
+                  {/* Sender / Recipient Avatar */}
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border mt-0.5 transition-transform group-hover:scale-105 ${avatarColorClass}`}
                   >
@@ -317,10 +337,10 @@ export default function EmailList({
                             : 'font-medium text-text-secondary'
                         }`}
                       >
-                        {senderName}
+                        {displayTitle}
                       </span>
                       <span className="text-[10px] text-text-tertiary shrink-0 font-mono">
-                        {timeAgo(email.createdAt || email.date)}
+                        {timeAgo(email.receivedAt || email.createdAt || email.date)}
                       </span>
                     </div>
 

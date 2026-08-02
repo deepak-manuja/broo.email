@@ -2,6 +2,7 @@ const Email = require('../models/Email');
 const User = require('../models/User');
 const { updateStorageUsage, calculateEmailSize, getAttachmentStoragePath } = require('../utils/storage');
 const { emitNewEmail } = require('../socket');
+const { sendOutboundEmail } = require('../services/resendService');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
@@ -129,7 +130,7 @@ exports.moveToFolder = async (req, res) => {
 exports.deleteEmail = async (req, res) => {
   try {
     const { id } = req.params;
-    const { permanent } = req.body; // If true, permanently delete
+    const isPermanent = req.body?.permanent === true || req.body?.permanent === 'true' || req.query?.permanent === 'true' || req.query?.permanent === true;
     const userId = req.user._id;
 
     const email = await Email.findOne({ _id: id, userId });
@@ -138,7 +139,7 @@ exports.deleteEmail = async (req, res) => {
       return res.status(404).json({ message: 'Email not found' });
     }
 
-    if (permanent) {
+    if (isPermanent) {
       // Permanently delete email and its attachments
       // Delete attachment files
       for (const attachment of email.attachments) {
@@ -172,13 +173,32 @@ exports.deleteEmail = async (req, res) => {
 // Send email
 exports.sendEmail = async (req, res) => {
   try {
-    const { to, subject, body } = req.body;
+    const { to, cc, subject, body } = req.body;
     const userId = req.user._id;
     const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // Parse recipients
+    const toList = Array.isArray(to)
+      ? to
+      : typeof to === 'string'
+      ? to.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    if (toList.length === 0) {
+      return res.status(400).json({ message: 'At least one recipient is required' });
+    }
+
+    const ccList = cc
+      ? Array.isArray(cc)
+        ? cc
+        : typeof cc === 'string'
+        ? cc.split(',').map((s) => s.trim()).filter(Boolean)
+        : []
+      : [];
 
     // Process attachments if any (handled by multer middleware)
     const attachments = req.files || [];
@@ -194,6 +214,8 @@ exports.sendEmail = async (req, res) => {
 
     // Save attachments to filesystem and prepare attachment records
     const attachmentRecords = [];
+    const filesForOutbound = [];
+
     for (const file of attachments) {
       // Create user directory if not exists
       const userDir = path.join(getAttachmentStoragePath(), userId.toString());
@@ -211,19 +233,39 @@ exports.sendEmail = async (req, res) => {
       await fs.promises.rename(file.path, filePath);
 
       attachmentRecords.push({
+        _id: attachmentId,
         filename: file.originalname,
         size: file.size,
         mimeType: file.mimetype,
         storageUrl: relativePath
       });
+
+      filesForOutbound.push({
+        filename: file.originalname,
+        path: filePath
+      });
     }
+
+    // Determine sender address
+    const fromAddress = user.email.includes('@') ? user.email : `${user.username || 'user'}@broo.email`;
+
+    // Attempt outbound delivery via Resend API
+    const outboundResult = await sendOutboundEmail({
+      from: fromAddress,
+      to: toList,
+      cc: ccList.length > 0 ? ccList : undefined,
+      subject: subject || '(no subject)',
+      text: body || '',
+      attachments: filesForOutbound
+    });
 
     // Create email document for sender's sent folder
     const email = new Email({
-      from: user.email,
-      to,
+      from: fromAddress,
+      to: toList,
       subject: subject || '(no subject)',
       body: body || '',
+      textBody: body || '',
       folder: 'sent',
       isRead: true, // Sent emails are marked as read
       isStarred: false,
@@ -235,10 +277,10 @@ exports.sendEmail = async (req, res) => {
 
     await email.save();
 
-    // TODO: Actually send email via Resend API or SMTP
-    // For now, we just save it to sent folder
-
-    res.status(201).json(email);
+    res.status(201).json({
+      ...email.toObject(),
+      outboundDelivery: outboundResult
+    });
   } catch (error) {
     console.error('Send email error:', error);
     res.status(500).json({ message: 'Server error' });

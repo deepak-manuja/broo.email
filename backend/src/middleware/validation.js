@@ -14,7 +14,18 @@ exports.loginValidator = [
 
 // Validation rules for sending email
 exports.sendEmailValidator = [
-  body('to').isEmail().normalizeEmail(),
+  body('to').custom((val) => {
+    if (!val) throw new Error('Recipient email is required');
+    const emails = Array.isArray(val) ? val : (typeof val === 'string' ? val.split(',') : []);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const email of emails) {
+      const trimmed = email.trim();
+      if (!trimmed || !emailRegex.test(trimmed)) {
+        throw new Error(`Invalid recipient email address: ${trimmed}`);
+      }
+    }
+    return true;
+  }),
   body('subject').optional().isString(),
   body('body').optional().isString()
 ];

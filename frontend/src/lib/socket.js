@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://api.broo.email:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.broo.email';
 
 let socket = null;
 

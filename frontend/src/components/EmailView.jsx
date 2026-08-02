@@ -13,20 +13,46 @@ import {
   Send,
   Copy
 } from 'lucide-react';
-import { emailAPI } from '../lib/api';
+import { emailAPI, API_URL } from '../lib/api';
 import toast from 'react-hot-toast';
 
 function formatFullDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleString('en-US', {
     weekday: 'short',
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatRecipients(to) {
+  if (!to) return '';
+  if (Array.isArray(to)) {
+    if (to.length === 0) return '';
+    return to
+      .map((t) => (typeof t === 'string' ? t : (t.name ? `${t.name} <${t.address}>` : t.address || '')))
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (typeof to === 'object') {
+    return to.name ? `${to.name} <${to.address}>` : to.address || '';
+  }
+  return String(to);
+}
+
+function getFirstRecipientEmail(to) {
+  if (!to) return '';
+  if (Array.isArray(to)) {
+    if (to.length === 0) return '';
+    const first = to[0];
+    return typeof first === 'string' ? first : (first?.address || '');
+  }
+  if (typeof to === 'object') return to.address || '';
+  return String(to);
 }
 
 export default function EmailView({
@@ -34,19 +60,27 @@ export default function EmailView({
   onBack,
   onDeleted,
   onReply,
-  onForward,
+  onForward
 }) {
   const [email, setEmail] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [quickReplyText, setQuickReplyText] = useState('');
   const [sendingQuickReply, setSendingQuickReply] = useState(false);
 
   useEffect(() => {
-    if (!emailId) return;
+    if (!emailId) {
+      setEmail(null);
+      return;
+    }
+
     setLoading(true);
     emailAPI.getById(emailId)
       .then((res) => {
         setEmail(res.data);
+        // Mark as read locally if not already
+        if (!res.data.isRead) {
+          emailAPI.markAsRead(emailId, true).catch(() => {});
+        }
       })
       .catch(() => toast.error('Failed to load email details'))
       .finally(() => setLoading(false));
@@ -91,6 +125,18 @@ export default function EmailView({
     );
   }
 
+  const isSentFolder = email.folder === 'sent';
+  const recipientsListText = formatRecipients(email.to);
+  const firstRecipientEmail = getFirstRecipientEmail(email.to);
+
+  const senderRaw = email.from?.name || email.from?.address || email.from || 'Unknown';
+  const senderName = typeof senderRaw === 'string' ? senderRaw : (senderRaw.name || senderRaw.address || 'Unknown');
+  const senderEmail = email.from?.address || (typeof email.from === 'string' ? email.from : '') || '';
+
+  const cardTitle = isSentFolder ? (recipientsListText || 'Recipient') : senderName;
+  const cardEmail = isSentFolder ? firstRecipientEmail : senderEmail;
+  const cardInitial = (cardTitle.replace(/^[<"'\s]+/, '').charAt(0) || 'U').toUpperCase();
+
   const handleDelete = async () => {
     try {
       await emailAPI.moveToFolder(emailId, 'trash');
@@ -110,17 +156,18 @@ export default function EmailView({
     }
   };
 
+  const replyTargetEmail = isSentFolder ? (firstRecipientEmail || recipientsListText) : (senderEmail || senderName);
+
   const handleQuickReply = async (e) => {
     e.preventDefault();
     if (!quickReplyText.trim()) return;
 
-    const toAddress = email.from?.address || email.from;
     const replySubject = email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`;
 
     setSendingQuickReply(true);
     try {
       const formData = new FormData();
-      formData.append('to', toAddress);
+      formData.append('to', replyTargetEmail);
       formData.append('subject', replySubject);
       formData.append('body', quickReplyText.trim());
 
@@ -134,18 +181,12 @@ export default function EmailView({
     }
   };
 
-  const copySenderEmail = () => {
-    const address = email.from?.address || email.from || '';
+  const copyEmailAddress = (address) => {
     if (address) {
       navigator.clipboard.writeText(address);
       toast.success('Email address copied!');
     }
   };
-
-  const senderRaw = email.from?.name || email.from?.address || email.from || 'Unknown';
-  const senderName = typeof senderRaw === 'string' ? senderRaw : (senderRaw.name || senderRaw.address || 'Unknown');
-  const senderEmail = email.from?.address || (typeof email.from === 'string' ? email.from : '') || '';
-  const senderInitial = (senderName.charAt(0) || 'U').toUpperCase();
 
   return (
     <div className="flex-1 flex flex-col bg-bg overflow-hidden fade-in h-full">
@@ -176,7 +217,7 @@ export default function EmailView({
 
           <button
             onClick={() => onReply?.({
-              to: senderEmail || senderName,
+              to: replyTargetEmail,
               subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
               body: `\n\n--- Original Message ---\nFrom: ${senderName} <${senderEmail}>\nSubject: ${email.subject}\n\n${email.textBody || email.snippet || ''}`,
             })}
@@ -226,7 +267,7 @@ export default function EmailView({
                 <span>Verified @broo.email</span>
               </span>
               <span>&bull;</span>
-              <span>{formatFullDate(email.createdAt || email.date)}</span>
+              <span>{formatFullDate(email.receivedAt || email.createdAt || email.date)}</span>
             </div>
           </div>
 
@@ -234,26 +275,30 @@ export default function EmailView({
           <div className="flex items-start justify-between gap-3 p-3.5 sm:p-4 rounded-xl bg-bg-card border border-border shadow-soft">
             <div className="flex items-start gap-3 min-w-0">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-accent-dark text-white flex items-center justify-center font-heading font-bold text-sm shrink-0 shadow-soft">
-                {senderInitial}
+                {cardInitial}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-semibold text-xs sm:text-sm text-text-primary truncate">
-                    {senderName}
+                    {isSentFolder ? `To: ${recipientsListText || 'Recipient'}` : senderName}
                   </span>
-                  {senderEmail && (
+                  {cardEmail && (
                     <button
-                      onClick={copySenderEmail}
+                      onClick={() => copyEmailAddress(cardEmail)}
                       className="text-[11px] text-text-tertiary hover:text-accent font-mono flex items-center gap-1 cursor-pointer transition-colors"
                       title="Copy email address"
                     >
-                      <span>&lt;{senderEmail}&gt;</span>
+                      <span>&lt;{cardEmail}&gt;</span>
                       <Copy size={10} />
                     </button>
                   )}
                 </div>
                 <p className="text-[11px] text-text-tertiary mt-0.5">
-                  to <span className="font-medium text-text-secondary">me</span>
+                  {isSentFolder ? (
+                    <>From: <span className="font-medium text-text-secondary">{senderEmail || senderName}</span></>
+                  ) : (
+                    <>to <span className="font-medium text-text-secondary">{recipientsListText || 'me'}</span></>
+                  )}
                 </p>
               </div>
             </div>
@@ -283,15 +328,21 @@ export default function EmailView({
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {email.attachments.map((att, i) => (
-                  <a
-                    key={i}
-                    href={att.storageUrl || att.url || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download={att.filename}
-                    className="flex items-center gap-3 p-3 bg-bg rounded-xl border border-border-light hover:border-accent hover:bg-accent-light/40 transition-all group no-underline"
-                  >
+                {email.attachments.map((att, i) => {
+                  const downloadHref = att.storageUrl
+                    ? att.storageUrl.startsWith('http')
+                      ? att.storageUrl
+                      : `${API_URL}${att.storageUrl}`
+                    : att.url || '#';
+                  return (
+                    <a
+                      key={i}
+                      href={downloadHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={att.filename}
+                      className="flex items-center gap-3 p-3 bg-bg rounded-xl border border-border-light hover:border-accent hover:bg-accent-light/40 transition-all group no-underline"
+                    >
                     <div className="p-2 rounded-lg bg-bg-card border border-border-light text-text-tertiary group-hover:text-accent shrink-0">
                       <Download size={14} />
                     </div>
@@ -305,8 +356,9 @@ export default function EmailView({
                         </p>
                       )}
                     </div>
-                  </a>
-                ))}
+                    </a>
+                  );
+                })}
               </div>
             </div>
           )}

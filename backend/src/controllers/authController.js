@@ -170,12 +170,12 @@ exports.googleAuth = async (req, res) => {
 exports.googleCallback = (req, res) => {
   try {
     const token = generateToken(req.user._id);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://broo-email.vercel.app';
     // Redirect to frontend auth callback page with token in query params
     res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
   } catch (error) {
     console.error('Google Callback Error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://broo-email.vercel.app';
     res.redirect(`${frontendUrl}/login?error=auth_failed`);
   }
 };

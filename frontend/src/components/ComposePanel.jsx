@@ -77,14 +77,24 @@ export default function ComposePanel({ onClose, onSent, initialData = {} }) {
       formData.append('body', body);
       files.forEach((f) => formData.append('attachments', f));
 
-      await emailAPI.send(formData, (progressEvent) => {
+      const res = await emailAPI.send(formData, (progressEvent) => {
         if (progressEvent.total) {
           const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(pct);
         }
       });
 
-      toast.success('Email sent successfully!');
+      const outbound = res?.data?.outboundDelivery;
+      if (outbound && outbound.success === false) {
+        toast.error(outbound.error || 'Saved to Sent, but delivery via Resend failed.', {
+          duration: 7000
+        });
+      } else if (outbound?.note) {
+        toast.success(`Email sent! (${outbound.note})`, { duration: 5000 });
+      } else {
+        toast.success('Email sent successfully!');
+      }
+
       onSent?.();
       onClose();
     } catch (err) {

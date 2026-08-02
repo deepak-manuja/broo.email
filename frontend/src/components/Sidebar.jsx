@@ -39,9 +39,11 @@ export default function Sidebar({
       .catch(() => {});
   }, []);
 
-  const usedMB = (storage.used / (1024 * 1024)).toFixed(1);
-  const limitMB = (storage.limit / (1024 * 1024)).toFixed(0);
-  const pct = Math.min(Math.round((storage.used / (storage.limit || 1)) * 100), 100);
+  const used = Number(storage?.usedBytes ?? storage?.used ?? 0) || 0;
+  const limit = Number(storage?.limitBytes ?? storage?.limit ?? 104857600) || 104857600;
+  const usedMB = (used / (1024 * 1024)).toFixed(1);
+  const limitMB = (limit / (1024 * 1024)).toFixed(0);
+  const pct = Math.min(Math.round((used / (limit || 1)) * 100), 100);
 
   const handleLogout = () => {
     logout();
