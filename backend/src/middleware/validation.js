@@ -32,16 +32,23 @@ exports.loginValidator = [
     .withMessage('Password is required')
 ];
 
+// Helper to extract email address from strings like '"Name" <user@domain.com>' or 'user@domain.com'
+const extractEmailAddress = (str) => {
+  if (!str || typeof str !== 'string') return '';
+  const match = str.match(/<([^>]+)>/) || str.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  return match ? match[1].trim() : str.trim();
+};
+
 // Validation rules for sending email
 exports.sendEmailValidator = [
   body('to').custom((val) => {
     if (!val) throw new Error('Recipient email is required');
     const emails = Array.isArray(val) ? val : (typeof val === 'string' ? val.split(',') : []);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    for (const email of emails) {
-      const trimmed = email.trim();
-      if (!trimmed || !emailRegex.test(trimmed)) {
-        throw new Error(`Invalid recipient email address: ${trimmed}`);
+    for (const rawEmail of emails) {
+      const cleanEmail = extractEmailAddress(rawEmail);
+      if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+        throw new Error(`Invalid recipient email address: ${rawEmail.trim()}`);
       }
     }
     return true;

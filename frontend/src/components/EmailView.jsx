@@ -32,14 +32,51 @@ function formatRecipients(to) {
   if (Array.isArray(to)) {
     if (to.length === 0) return '';
     return to
-      .map((t) => (typeof t === 'string' ? t : (t.name ? `${t.name} <${t.address}>` : t.address || '')))
+      .map((t) => {
+        if (typeof t === 'string') {
+          const parsed = parseEmailString(t);
+          return parsed.name && parsed.name !== parsed.address
+            ? `${parsed.name} <${parsed.address}>`
+            : parsed.address;
+        }
+        return t.name ? `${t.name} <${t.address}>` : t.address || '';
+      })
       .filter(Boolean)
       .join(', ');
   }
   if (typeof to === 'object') {
     return to.name ? `${to.name} <${to.address}>` : to.address || '';
   }
-  return String(to);
+  const parsed = parseEmailString(to);
+  return parsed.name && parsed.name !== parsed.address
+    ? `${parsed.name} <${parsed.address}>`
+    : parsed.address;
+}
+
+export function parseEmailString(input) {
+  if (!input) return { name: '', address: '' };
+  if (typeof input === 'object') {
+    return {
+      name: input.name || '',
+      address: input.address || input.email || ''
+    };
+  }
+  const clean = String(input).trim();
+  // Match standard formats: "Name" <email> or Name <email> or <email>
+  const match = clean.match(/^"?([^"<]*)"?\s*<([^>]+)>/) || clean.match(/<([^>]+)>/);
+  if (match) {
+    const address = match[2] ? match[2].trim() : match[1].trim();
+    let name = match[2] ? match[1].trim().replace(/^["']|["']$/g, '') : '';
+    if (!name && address.includes('@')) {
+      name = address.split('@')[0];
+    }
+    return { name: name || address, address };
+  }
+  
+  if (clean.includes('@')) {
+    return { name: clean.split('@')[0], address: clean };
+  }
+  return { name: clean, address: clean };
 }
 
 function getFirstRecipientEmail(to) {
@@ -47,10 +84,11 @@ function getFirstRecipientEmail(to) {
   if (Array.isArray(to)) {
     if (to.length === 0) return '';
     const first = to[0];
-    return typeof first === 'string' ? first : (first?.address || '');
+    const parsed = parseEmailString(first);
+    return parsed.address || '';
   }
-  if (typeof to === 'object') return to.address || '';
-  return String(to);
+  const parsed = parseEmailString(to);
+  return parsed.address || '';
 }
 
 function isHTML(str) {
@@ -126,12 +164,14 @@ export default function EmailView({
   const recipientsListText = formatRecipients(email.to);
   const firstRecipientEmail = getFirstRecipientEmail(email.to);
 
-  const senderRaw = email.from?.name || email.from?.address || email.from || 'Unknown';
-  const senderName = typeof senderRaw === 'string' ? senderRaw : (senderRaw.name || senderRaw.address || 'Unknown');
-  const senderEmail = email.from?.address || (typeof email.from === 'string' ? email.from : '') || '';
+  const parsedSender = parseEmailString(email.from);
+  const parsedRecipient = parseEmailString(firstRecipientEmail);
 
-  const cardTitle = isSentFolder ? (recipientsListText || 'Recipient') : senderName;
-  const cardEmail = isSentFolder ? firstRecipientEmail : senderEmail;
+  const senderName = parsedSender.name || parsedSender.address || 'Unknown';
+  const senderEmail = parsedSender.address || '';
+
+  const cardTitle = isSentFolder ? (recipientsListText || parsedRecipient.name || 'Recipient') : senderName;
+  const cardEmail = isSentFolder ? (parsedRecipient.address || firstRecipientEmail) : senderEmail;
 
   const rawHtml = email.htmlBody || (isHTML(email.body) ? email.body : '');
   const hasHtml = Boolean(rawHtml);
@@ -155,7 +195,13 @@ export default function EmailView({
     }
   };
 
-  const replyTargetEmail = isSentFolder ? (firstRecipientEmail || recipientsListText) : (senderEmail || senderName);
+  const replyTargetEmail = isSentFolder
+    ? (parsedRecipient.address || firstRecipientEmail || recipientsListText)
+    : (senderEmail || senderName);
+
+  const senderHeaderString = senderName && senderEmail && senderName !== senderEmail
+    ? `${senderName} <${senderEmail}>`
+    : (senderEmail || senderName);
 
   const handleQuickReply = async (e) => {
     e.preventDefault();
@@ -217,7 +263,7 @@ export default function EmailView({
             onClick={() => onReply?.({
               to: replyTargetEmail,
               subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
-              body: `\n\n--- Original Message ---\nFrom: ${senderName} <${senderEmail}>\nSubject: ${email.subject}\n\n${email.textBody || email.snippet || ''}`,
+              body: `\n\n--- Original Message ---\nFrom: ${senderHeaderString}\nSubject: ${email.subject || ''}\n\n${email.textBody || email.snippet || email.body || ''}`,
             })}
             className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
             title="Reply"
@@ -230,7 +276,7 @@ export default function EmailView({
             onClick={() => onForward?.({
               to: '',
               subject: email.subject?.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject || ''}`,
-              body: `\n\n---------- Forwarded message ---------\nFrom: ${senderName} <${senderEmail}>\nSubject: ${email.subject}\n\n${email.textBody || email.snippet || ''}`,
+              body: `\n\n---------- Forwarded message ---------\nFrom: ${senderHeaderString}\nSubject: ${email.subject || ''}\n\n${email.textBody || email.snippet || email.body || ''}`,
             })}
             className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
             title="Forward"
@@ -272,7 +318,7 @@ export default function EmailView({
                   <span className="font-semibold text-xs text-text-primary truncate">
                     {cardTitle}
                   </span>
-                  {cardEmail && (
+                  {cardEmail && cardEmail !== cardTitle && (
                     <button
                       onClick={() => copyEmailAddress(cardEmail)}
                       className="text-[11px] text-text-tertiary hover:text-text-primary font-mono flex items-center gap-1 cursor-pointer transition-colors"
@@ -285,7 +331,7 @@ export default function EmailView({
                 </div>
                 <p className="text-[11px] text-text-tertiary mt-0.5">
                   {isSentFolder ? (
-                    <>From: <span className="font-medium text-text-secondary">{senderEmail || senderName}</span></>
+                    <>From: <span className="font-medium text-text-secondary">{senderHeaderString}</span></>
                   ) : (
                     <>to <span className="font-medium text-text-secondary">{recipientsListText || 'me'}</span></>
                   )}

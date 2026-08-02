@@ -70,9 +70,21 @@ const smtpServer = new SMTPServer({
               return;
             }
 
+            let formattedFrom = 'unknown@broo.email';
+            if (from) {
+              if (Array.isArray(from.value) && from.value.length > 0) {
+                const firstVal = from.value[0];
+                formattedFrom = firstVal.name
+                  ? `"${firstVal.name.replace(/"/g, '')}" <${firstVal.address}>`
+                  : (firstVal.address || from.text || 'unknown@broo.email');
+              } else if (from.text) {
+                formattedFrom = from.text;
+              }
+            }
+
             // Prepare email document
             const emailData = {
-              from: from.text || from.value,
+              from: formattedFrom,
               to: recipient.address,
               subject: subject || '(no subject)',
               body: html || text || '',

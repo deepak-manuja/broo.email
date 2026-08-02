@@ -181,24 +181,35 @@ exports.sendEmail = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Helper to extract clean email address
+    const extractEmailAddress = (str) => {
+      if (!str || typeof str !== 'string') return '';
+      const match = str.match(/<([^>]+)>/) || str.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      return match ? match[1].trim().toLowerCase() : str.trim().toLowerCase();
+    };
+
     // Parse recipients
-    const toList = Array.isArray(to)
+    const rawToList = Array.isArray(to)
       ? to
       : typeof to === 'string'
       ? to.split(',').map((s) => s.trim()).filter(Boolean)
       : [];
 
+    const toList = rawToList.map(extractEmailAddress).filter(Boolean);
+
     if (toList.length === 0) {
       return res.status(400).json({ message: 'At least one recipient is required' });
     }
 
-    const ccList = cc
+    const rawCcList = cc
       ? Array.isArray(cc)
         ? cc
         : typeof cc === 'string'
         ? cc.split(',').map((s) => s.trim()).filter(Boolean)
         : []
       : [];
+
+    const ccList = rawCcList.map(extractEmailAddress).filter(Boolean);
 
     // Process attachments if any (handled by multer middleware)
     const attachments = req.files || [];

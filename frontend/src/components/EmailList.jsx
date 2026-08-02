@@ -24,19 +24,42 @@ function timeAgo(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function parseEmailString(input) {
+  if (!input) return { name: '', address: '' };
+  if (typeof input === 'object') {
+    return {
+      name: input.name || '',
+      address: input.address || input.email || ''
+    };
+  }
+  const clean = String(input).trim();
+  const match = clean.match(/^"?([^"<]*)"?\s*<([^>]+)>/) || clean.match(/<([^>]+)>/);
+  if (match) {
+    const address = match[2] ? match[2].trim() : match[1].trim();
+    let name = match[2] ? match[1].trim().replace(/^["']|["']$/g, '') : '';
+    if (!name && address.includes('@')) {
+      name = address.split('@')[0];
+    }
+    return { name: name || address, address };
+  }
+  if (clean.includes('@')) {
+    return { name: clean.split('@')[0], address: clean };
+  }
+  return { name: clean, address: clean };
+}
+
 function formatRecipientDisplay(to) {
   if (!to) return 'Unknown Recipient';
   if (Array.isArray(to)) {
     if (to.length === 0) return 'Unknown Recipient';
     const first = to[0];
-    const firstStr = typeof first === 'string' ? first : (first?.name || first?.address || 'Unknown');
+    const parsed = parseEmailString(first);
+    const firstStr = parsed.name || parsed.address || 'Unknown';
     if (to.length === 1) return firstStr;
     return `${firstStr} (+${to.length - 1})`;
   }
-  if (typeof to === 'object') {
-    return to.name || to.address || 'Unknown';
-  }
-  return String(to);
+  const parsed = parseEmailString(to);
+  return parsed.name || parsed.address || 'Unknown';
 }
 
 function getPreviewText(email) {
@@ -294,8 +317,8 @@ export default function EmailList({
             const isRead = email.isRead;
             const isSent = folder === 'sent' || email.folder === 'sent';
             const recipientText = formatRecipientDisplay(email.to);
-            const senderRaw = email.from?.name || email.from?.address || email.from || 'Unknown Sender';
-            const senderName = typeof senderRaw === 'string' ? senderRaw : (senderRaw.name || senderRaw.address || 'Unknown');
+            const parsedSender = parseEmailString(email.from);
+            const senderName = parsedSender.name || parsedSender.address || 'Unknown Sender';
             
             const displayTitle = isSent ? `To: ${recipientText}` : senderName;
             const avatarSeed = isSent ? recipientText : senderName;
