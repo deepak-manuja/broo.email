@@ -75,6 +75,7 @@ export default function EmailList({
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all' | 'unread' | 'starred'
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const searchTimer = useRef(null);
 
   const fetchEmails = useCallback(async (query = '') => {
@@ -276,7 +277,7 @@ export default function EmailList({
           </div>
         ) : (
           displayedEmails.map((email) => {
-            const isSelected = email._id === selectedEmailId;
+            const isSelected = selectedIds.has(email._id) || email._id === selectedEmailId;
             const isRead = email.isRead;
             const senderRaw = email.from?.name || email.from?.address || email.from || 'Unknown Sender';
             const senderName = typeof senderRaw === 'string' ? senderRaw : (senderRaw.name || senderRaw.address || 'Unknown');
@@ -286,7 +287,10 @@ export default function EmailList({
             return (
               <div
                 key={email._id}
-                onClick={() => onSelectEmail(email._id)}
+                onClick={() => {
+                  setSelectedIds(new Set([email._id]));
+                  onSelectEmail(email._id);
+                }}
                 className={`group relative p-3 sm:px-4 sm:py-3.5 cursor-pointer transition-colors border-l-[3px] ${
                   isSelected
                     ? 'bg-accent-light/80 border-l-accent'
