@@ -119,6 +119,34 @@ exports.safeUnlink = (filePath) => {
   return false;
 };
 
+// Cross-device safe async file move (handles EXDEV error between tmpfs and disk volumes)
+exports.moveFileSafe = async (sourcePath, destPath) => {
+  try {
+    await fs.promises.rename(sourcePath, destPath);
+  } catch (err) {
+    if (err.code === 'EXDEV') {
+      await fs.promises.copyFile(sourcePath, destPath);
+      await fs.promises.unlink(sourcePath);
+    } else {
+      throw err;
+    }
+  }
+};
+
+// Cross-device safe sync file move
+exports.moveFileSafeSync = (sourcePath, destPath) => {
+  try {
+    fs.renameSync(sourcePath, destPath);
+  } catch (err) {
+    if (err.code === 'EXDEV') {
+      fs.copyFileSync(sourcePath, destPath);
+      fs.unlinkSync(sourcePath);
+    } else {
+      throw err;
+    }
+  }
+};
+
 // Helper function to get file size
 exports.getFileSize = (filePath) => {
   try {

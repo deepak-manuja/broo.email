@@ -3,7 +3,7 @@ const fs = require('fs');
 const mongoose = require('mongoose');
 const Email = require('../models/Email');
 const User = require('../models/User');
-const { updateStorageUsage, getAttachmentStoragePath } = require('../utils/storage');
+const { updateStorageUsage, getAttachmentStoragePath, moveFileSafeSync } = require('../utils/storage');
 require('dotenv').config();
 
 // Upload attachments for an email
@@ -44,8 +44,8 @@ exports.uploadAttachments = async (req, res) => {
       const filePath = path.join(userDir, fileName);
       createdFilePaths.push(filePath);
 
-      // Move file from temp location to permanent storage
-      fs.renameSync(file.path, filePath);
+      // Move file from temp location to permanent storage using EXDEV-safe move
+      moveFileSafeSync(file.path, filePath);
 
       // Calculate file size
       const stats = fs.statSync(filePath);

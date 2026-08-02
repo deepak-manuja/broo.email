@@ -72,14 +72,22 @@ async function sendOutboundEmail({ from, to, cc, subject, text, html, attachment
     ? (configuredFrom.includes('<') ? configuredFrom : `Broo Email <${configuredFrom}>`)
     : (sender.includes('<') ? sender : `Broo Email <${sender}>`);
 
+  const safeText = text || (html ? undefined : ' ');
+  const safeHtml = html || (text ? `<div style="font-family:sans-serif;line-height:1.6;">${text.replace(/\n/g, '<br/>')}</div>` : undefined);
+
   const payload = {
     from: initialFrom,
     to: toList,
     reply_to: sender.includes('<') ? sender.match(/<([^>]+)>/)?.[1] || sender : sender,
     subject: subject || '(no subject)',
-    text: text || '',
-    html: html || (text ? `<div style="font-family:sans-serif;line-height:1.6;">${text.replace(/\n/g, '<br/>')}</div>` : undefined),
+    ...(safeText ? { text: safeText } : {}),
+    ...(safeHtml ? { html: safeHtml } : {}),
   };
+
+  // If neither text nor html was set, provide a fallback
+  if (!payload.text && !payload.html) {
+    payload.text = ' ';
+  }
 
   if (ccList && ccList.length > 0) {
     payload.cc = ccList;

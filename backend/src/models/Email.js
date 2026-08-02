@@ -17,6 +17,14 @@ const emailSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  htmlBody: {
+    type: String,
+    default: ''
+  },
+  textBody: {
+    type: String,
+    default: ''
+  },
   folder: {
     type: String,
     enum: ['inbox', 'sent', 'trash', 'starred'],

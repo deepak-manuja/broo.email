@@ -76,6 +76,8 @@ const smtpServer = new SMTPServer({
               to: recipient.address,
               subject: subject || '(no subject)',
               body: html || text || '',
+              htmlBody: html || '',
+              textBody: text || '',
               folder: 'inbox',
               isRead: false,
               isStarred: false,

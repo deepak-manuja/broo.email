@@ -55,6 +55,11 @@ function getFirstRecipientEmail(to) {
   return String(to);
 }
 
+function isHTML(str) {
+  if (!str || typeof str !== 'string') return false;
+  return /<\/?[a-z][\s\S]*>/i.test(str);
+}
+
 export default function EmailView({
   emailId,
   onBack,
@@ -136,6 +141,9 @@ export default function EmailView({
   const cardTitle = isSentFolder ? (recipientsListText || 'Recipient') : senderName;
   const cardEmail = isSentFolder ? firstRecipientEmail : senderEmail;
   const cardInitial = (cardTitle.replace(/^[<"'\s]+/, '').charAt(0) || 'U').toUpperCase();
+
+  const rawHtml = email.htmlBody || (isHTML(email.body) ? email.body : '');
+  const hasHtml = Boolean(rawHtml);
 
   const handleDelete = async () => {
     try {
@@ -305,11 +313,11 @@ export default function EmailView({
           </div>
 
           {/* Email Body Content */}
-          <div className="p-4 sm:p-6 bg-bg-card rounded-2xl border border-border shadow-soft">
-            {email.htmlBody ? (
+          <div className="p-4 sm:p-6 bg-bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
+            {hasHtml ? (
               <div
-                className="prose prose-sm max-w-none text-text-primary leading-relaxed break-words"
-                dangerouslySetInnerHTML={{ __html: email.htmlBody }}
+                className="email-content-rendered max-w-none text-text-primary text-xs sm:text-sm leading-relaxed break-words [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_img]:shadow-sm [&_a]:text-accent [&_a]:underline [&_table]:w-full [&_table]:border-collapse"
+                dangerouslySetInnerHTML={{ __html: rawHtml }}
               />
             ) : (
               <div className="whitespace-pre-wrap text-xs sm:text-sm text-text-primary leading-relaxed font-sans break-words">

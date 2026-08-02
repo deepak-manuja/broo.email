@@ -1,6 +1,6 @@
 const Email = require('../models/Email');
 const User = require('../models/User');
-const { updateStorageUsage, calculateEmailSize, getAttachmentStoragePath } = require('../utils/storage');
+const { updateStorageUsage, calculateEmailSize, getAttachmentStoragePath, moveFileSafe } = require('../utils/storage');
 const { emitNewEmail } = require('../socket');
 const { sendOutboundEmail } = require('../services/resendService');
 const path = require('path');
@@ -229,8 +229,8 @@ exports.sendEmail = async (req, res) => {
       const filePath = path.join(userDir, fileName);
       const relativePath = `/uploads/${userId}/${fileName}`;
 
-      // Move file from temp to permanent location
-      await fs.promises.rename(file.path, filePath);
+      // Move file from temp to permanent location using safe cross-device move
+      await moveFileSafe(file.path, filePath);
 
       attachmentRecords.push({
         _id: attachmentId,
@@ -266,6 +266,7 @@ exports.sendEmail = async (req, res) => {
       subject: subject || '(no subject)',
       body: body || '',
       textBody: body || '',
+      htmlBody: body ? `<div style="font-family:sans-serif;line-height:1.6;">${body.replace(/\n/g, '<br/>')}</div>` : '',
       folder: 'sent',
       isRead: true, // Sent emails are marked as read
       isStarred: false,

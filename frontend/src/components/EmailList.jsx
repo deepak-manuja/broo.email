@@ -60,6 +60,27 @@ function getAvatarStyle(str = '') {
   return AVATAR_COLORS[index];
 }
 
+function getPreviewText(email) {
+  if (email.snippet) return email.snippet;
+  const raw = email.textBody || email.body || '';
+  if (!raw) return 'No message preview';
+
+  // If raw contains HTML, strip tags
+  if (/<\/?[a-z][\s\S]*>/i.test(raw)) {
+    const stripped = raw
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (stripped) return stripped.substring(0, 80);
+    if (raw.includes('<img') || raw.includes('data:image')) return '📷 [Image]';
+    return 'No message preview';
+  }
+
+  return raw.trim().substring(0, 80) || 'No message preview';
+}
+
 function EmailSkeleton() {
   return (
     <div className="px-4 py-3.5 border-b border-border-light">
@@ -355,7 +376,7 @@ export default function EmailList({
                     </p>
 
                     <p className="text-[11px] text-text-tertiary truncate leading-relaxed">
-                      {email.snippet || email.textBody?.substring(0, 80) || email.body?.substring(0, 80) || 'No message preview'}
+                      {getPreviewText(email)}
                     </p>
 
                     {/* Meta row: Attachments & badges */}
