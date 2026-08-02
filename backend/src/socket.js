@@ -6,12 +6,45 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 let io;
 
+const allowedOrigins = [
+  'https://broo.email',
+  'https://www.broo.email',
+  'https://broo-email.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+if (process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL.split(',').forEach(url => {
+    const trimmed = url.trim().replace(/\/$/, '');
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
+    }
+  });
+}
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  return (
+    allowedOrigins.includes(origin) ||
+    /^https:\/\/broo-email.*\.vercel\.app$/.test(origin) ||
+    /^https:\/\/(.*\.)?broo\.email$/.test(origin)
+  );
+};
+
 // Initialize socket.io
 const initSocket = (httpServer) => {
   io = require('socket.io')(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL || '*',
-      methods: ['GET', 'POST']
+      origin: (origin, callback) => {
+        if (isOriginAllowed(origin)) {
+          callback(null, true);
+        } else {
+          callback(null, false);
+        }
+      },
+      methods: ['GET', 'POST'],
+      credentials: true
     }
   });
 

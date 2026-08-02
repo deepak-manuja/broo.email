@@ -20,11 +20,48 @@ const userRoutes = require('./routes/user');
 // Initialize express app
 const app = express();
 
+// Allowed origins for CORS (supports custom domain, vercel deployments, localhost)
+const allowedOrigins = [
+  'https://broo.email',
+  'https://www.broo.email',
+  'https://broo-email.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+if (process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL.split(',').forEach(url => {
+    const trimmed = url.trim().replace(/\/$/, '');
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
+    }
+  });
+}
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  return (
+    allowedOrigins.includes(origin) ||
+    /^https:\/\/broo-email.*\.vercel\.app$/.test(origin) ||
+    /^https:\/\/(.*\.)?broo\.email$/.test(origin)
+  );
+};
+
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json({ limit: '25mb' })); // For parsing application/json
 app.use(express.urlencoded({ extended: true, limit: '25mb' })); // For parsing application/x-www-form-urlencoded
