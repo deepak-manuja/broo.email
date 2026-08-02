@@ -25,11 +25,12 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { username } = req.body;
+    const { username, firstName, lastName, avatar } = req.body;
 
     // Check if username is already taken by another user
     if (username) {
-      const existingUser = await User.findOne({ username, _id: { $ne: userId } });
+      const cleanUsername = username.toLowerCase().replace(/[^a-z0-9._-]/g, '').trim();
+      const existingUser = await User.findOne({ username: cleanUsername, _id: { $ne: userId } });
       if (existingUser) {
         return res.status(400).json({ message: 'Username already taken' });
       }
@@ -37,7 +38,16 @@ exports.updateProfile = async (req, res) => {
 
     // Update user
     const updateData = {};
-    if (username) updateData.username = username;
+    if (username) updateData.username = username.toLowerCase().replace(/[^a-z0-9._-]/g, '').trim();
+    if (firstName !== undefined) updateData.firstName = (firstName || '').trim();
+    if (lastName !== undefined) updateData.lastName = (lastName || '').trim();
+    if (firstName !== undefined || lastName !== undefined) {
+      const u = await User.findById(userId);
+      const f = firstName !== undefined ? firstName : u.firstName;
+      const l = lastName !== undefined ? lastName : u.lastName;
+      updateData.name = [f, l].filter(Boolean).join(' ').trim();
+    }
+    if (avatar !== undefined) updateData.avatar = avatar;
 
     const user = await User.findByIdAndUpdate(
       userId,

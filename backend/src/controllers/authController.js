@@ -2,6 +2,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
+const { sendWelcomeEmail } = require('../services/welcomeService');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -13,33 +14,71 @@ const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 };
 
-// Register user with email/password
+// Helper to format user payload
+const formatUserResponse = (user) => ({
+  id: user._id,
+  email: user.email,
+  username: user.username,
+  firstName: user.firstName || '',
+  lastName: user.lastName || '',
+  name: user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username,
+  avatar: user.avatar || '',
+  storageUsedBytes: user.storageUsedBytes || 0,
+  storageLimit: user.storageLimit || 104857600
+});
+
+// Register user with firstName, lastName, username/email, password, avatar
 exports.register = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const normalizedEmail = (email || '').toLowerCase().trim();
+    const { firstName, lastName, email, username: rawUsername, password, avatar } = req.body;
 
-    // Check if user already exists
-    let user = await User.findOne({ email: normalizedEmail });
-    if (user) {
-      return res.status(400).json({ message: 'User with this email already exists' });
+    // Determine clean username and email
+    let cleanUsername = (rawUsername || '').toLowerCase().replace(/[^a-z0-9._-]/g, '').trim();
+    let normalizedEmail = (email || '').toLowerCase().trim();
+
+    if (!cleanUsername && normalizedEmail) {
+      cleanUsername = normalizedEmail.split('@')[0].replace(/[^a-z0-9._-]/g, '');
     }
 
-    // Generate username from email (part before @)
-    let username = normalizedEmail.split('@')[0];
-
-    // Ensure username is unique
-    let baseUsername = username;
-    let counter = 0;
-    while (await User.findOne({ username })) {
-      counter++;
-      username = `${baseUsername}${counter}`;
+    if (!normalizedEmail && cleanUsername) {
+      normalizedEmail = `${cleanUsername}@broo.email`;
     }
+
+    if (!normalizedEmail || !cleanUsername) {
+      return res.status(400).json({ message: 'Please provide a valid username or email address' });
+    }
+
+    if (cleanUsername.length < 2) {
+      return res.status(400).json({ message: 'Username must be at least 2 characters' });
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    // Check if email or username already exists
+    const existingEmail = await User.findOne({ email: normalizedEmail });
+    if (existingEmail) {
+      return res.status(400).json({ message: `The email ${normalizedEmail} is already registered.` });
+    }
+
+    const existingUsername = await User.findOne({ username: cleanUsername });
+    if (existingUsername) {
+      return res.status(400).json({ message: `The handle @${cleanUsername} is already taken. Please choose another.` });
+    }
+
+    const cleanFirstName = (firstName || '').trim();
+    const cleanLastName = (lastName || '').trim();
+    const fullName = [cleanFirstName, cleanLastName].filter(Boolean).join(' ') || cleanUsername;
 
     // Create new user
-    user = new User({
+    const user = new User({
       email: normalizedEmail,
-      username
+      username: cleanUsername,
+      firstName: cleanFirstName,
+      lastName: cleanLastName,
+      name: fullName,
+      avatar: (avatar || '').trim()
     });
 
     // Hash password
@@ -48,33 +87,43 @@ exports.register = async (req, res) => {
 
     await user.save();
 
+    // Automatically deposit welcome email into user's inbox
+    await sendWelcomeEmail(user);
+
     // Generate token
     const token = generateToken(user._id);
 
     res.status(201).json({
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username
-      }
+      user: formatUserResponse(user)
     });
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
-// Login user with email/password
+// Login user with email/username and password
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const normalizedEmail = (email || '').toLowerCase().trim();
+    const input = (email || '').toLowerCase().trim();
 
-    // Check if user exists (explicitly select passwordHash since it is excluded by default in schema)
-    const user = await User.findOne({ email: normalizedEmail }).select('+passwordHash');
+    if (!input || !password) {
+      return res.status(400).json({ message: 'Please provide email/username and password' });
+    }
+
+    // Look up user by email or by username
+    let user = await User.findOne({
+      $or: [
+        { email: input },
+        { username: input },
+        { email: `${input}@broo.email` }
+      ]
+    }).select('+passwordHash');
+
     if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(400).json({ message: 'Invalid email/username or password' });
     }
 
     // Check if account has a password or was created via Google OAuth
@@ -93,11 +142,7 @@ exports.login = async (req, res) => {
 
     res.json({
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username
-      }
+      user: formatUserResponse(user)
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -117,7 +162,7 @@ exports.googleAuth = async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-    const { email, email_verified, name, picture, sub: googleId } = payload;
+    const { email, email_verified, name, given_name, family_name, picture, sub: googleId } = payload;
 
     // Check if email is verified
     if (!email_verified) {
@@ -133,7 +178,7 @@ exports.googleAuth = async (req, res) => {
       isNewUser = true;
 
       // Generate username from email
-      let username = email.split('@')[0];
+      let username = email.split('@')[0].replace(/[^a-z0-9._-]/g, '');
       let baseUsername = username;
       let counter = 0;
       while (await User.findOne({ username })) {
@@ -144,15 +189,27 @@ exports.googleAuth = async (req, res) => {
       user = new User({
         email,
         username,
+        firstName: given_name || '',
+        lastName: family_name || '',
+        name: name || [given_name, family_name].filter(Boolean).join(' ') || username,
+        avatar: picture || '',
         googleId,
         passwordHash: null // OAuth-only user
       });
-    } else if (!user.googleId) {
-      // Existing user without Google ID - link Google account
-      user.googleId = googleId;
-    }
 
-    await user.save();
+      await user.save();
+
+      // Send welcome email to new Google OAuth user
+      await sendWelcomeEmail(user);
+    } else {
+      if (!user.googleId) {
+        user.googleId = googleId;
+      }
+      if (!user.avatar && picture) {
+        user.avatar = picture;
+      }
+      await user.save();
+    }
 
     // Generate token
     const token = generateToken(user._id);
@@ -160,9 +217,7 @@ exports.googleAuth = async (req, res) => {
     res.json({
       token,
       user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
+        ...formatUserResponse(user),
         isNewUser
       }
     });
@@ -177,7 +232,6 @@ exports.googleCallback = (req, res) => {
   try {
     const token = generateToken(req.user._id);
     const frontendUrl = process.env.FRONTEND_URL || 'https://broo-email.vercel.app';
-    // Redirect to frontend auth callback page with token in query params
     res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
   } catch (error) {
     console.error('Google Callback Error:', error);
@@ -186,7 +240,7 @@ exports.googleCallback = (req, res) => {
   }
 };
 
-// Logout (client-side token removal)
+// Logout
 exports.logout = (req, res) => {
   res.json({ message: 'Logged out successfully' });
 };

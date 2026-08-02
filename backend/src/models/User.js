@@ -16,6 +16,25 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
+  firstName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  lastName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  name: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  avatar: {
+    type: String,
+    default: ''
+  },
   passwordHash: {
     type: String,
     select: false // Do not return passwordHash in queries by default
@@ -48,12 +67,6 @@ userSchema.methods.setPassword = async function(password) {
 userSchema.methods.validatePassword = async function(password) {
   return bcrypt.compare(password, this.passwordHash);
 };
-
-// Virtual for gravatar (optional)
-// userSchema.virtual('gravatar').get(function() {
-//   const hash = crypto.createHash('md5').update(this.email).digest('hex');
-//   return `https://gravatar.com/avatar/${hash}?d=identicon`;
-// });
 
 // Ensure virtuals are included when converting to JSON
 userSchema.set('toJSON', { virtuals: true });

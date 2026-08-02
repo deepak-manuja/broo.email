@@ -55,6 +55,9 @@ export default function Sidebar({
   };
 
   const userEmail = user?.email || user?.username || 'user@broo.email';
+  const displayName = user?.name || user?.firstName || user?.username || userEmail.split('@')[0];
+  const userAvatar = user?.avatar;
+  const initial = (displayName.charAt(0) || 'U').toUpperCase();
 
   return (
     <aside
@@ -69,6 +72,7 @@ export default function Sidebar({
           <button
             onClick={toggleTheme}
             className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+            aria-label="Toggle theme"
           >
             {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
           </button>
@@ -93,7 +97,7 @@ export default function Sidebar({
           className="flex items-center justify-center gap-2 w-full py-2 px-3 bg-accent text-bg rounded-lg font-medium text-[13px] hover:bg-accent-hover transition-colors cursor-pointer active:scale-[0.98]"
         >
           <PenSquare size={14} />
-          Compose
+          <span>Compose</span>
         </button>
       </div>
 
@@ -130,7 +134,7 @@ export default function Sidebar({
       </nav>
 
       {/* Bottom */}
-      <div className="p-3 border-t border-border space-y-2">
+      <div className="p-3 border-t border-border space-y-2.5">
         {/* Storage */}
         <div className="px-0.5">
           <div className="flex items-center justify-between text-[10px] text-text-tertiary mb-1">
@@ -151,17 +155,35 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* User + logout */}
-        <div className="flex items-center gap-2 px-0.5">
-          <p className="flex-1 text-[11px] text-text-tertiary truncate font-mono" title={userEmail}>
-            {userEmail}
-          </p>
+        {/* User Card + Logout */}
+        <div className="flex items-center gap-2 px-0.5 pt-0.5">
+          {userAvatar ? (
+            <img
+              src={userAvatar}
+              alt={displayName}
+              className="w-6 h-6 rounded-full object-cover border border-border shrink-0"
+            />
+          ) : (
+            <div className="w-6 h-6 rounded bg-bg-card border border-border text-text-secondary flex items-center justify-center text-[10px] font-mono font-medium shrink-0">
+              {initial}
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-text-primary truncate leading-tight">
+              {displayName}
+            </p>
+            <p className="text-[10px] text-text-tertiary truncate font-mono" title={userEmail}>
+              {userEmail}
+            </p>
+          </div>
+
           <button
             onClick={handleLogout}
             className="p-1 text-text-tertiary hover:text-danger transition-colors cursor-pointer shrink-0"
             title="Sign out"
           >
-            <LogOut size={12} />
+            <LogOut size={13} />
           </button>
         </div>
       </div>

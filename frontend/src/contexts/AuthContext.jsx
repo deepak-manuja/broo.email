@@ -47,8 +47,12 @@ export function AuthProvider({ children }) {
     return userData;
   }, []);
 
-  const register = useCallback(async (email, password) => {
-    const res = await authAPI.register({ email, password });
+  const register = useCallback(async (registrationData) => {
+    const payload = typeof registrationData === 'string'
+      ? { email: registrationData, password: arguments[1] }
+      : registrationData;
+    
+    const res = await authAPI.register(payload);
     const { token: jwt, user: userData } = res.data;
     localStorage.setItem('broo_token', jwt);
     localStorage.setItem('broo_user', JSON.stringify(userData));
@@ -87,4 +91,3 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
-
