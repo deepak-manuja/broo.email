@@ -29,21 +29,6 @@ function formatFullDate(dateStr) {
   });
 }
 
-const normalizeEmailAddress = (value) => {
-  if (!value) return '';
-
-  if (typeof value === 'string') {
-    const match = value.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    return match ? match[0] : '';
-  }
-
-  if (typeof value === 'object' && value.address) {
-    return normalizeEmailAddress(value.address);
-  }
-
-  return '';
-};
-
 export default function EmailView({
   emailId,
   onBack,
@@ -129,13 +114,7 @@ export default function EmailView({
     e.preventDefault();
     if (!quickReplyText.trim()) return;
 
-    const toAddress = normalizeEmailAddress(email.from);
-
-    if (!toAddress) {
-      toast.error('This message has no valid sender email address to reply to.');
-      return;
-    }
-
+    const toAddress = email.from?.address || email.from;
     const replySubject = email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`;
 
     setSendingQuickReply(true);
@@ -165,11 +144,7 @@ export default function EmailView({
 
   const senderRaw = email.from?.name || email.from?.address || email.from || 'Unknown';
   const senderName = typeof senderRaw === 'string' ? senderRaw : (senderRaw.name || senderRaw.address || 'Unknown');
-  const senderEmail = normalizeEmailAddress(email.from);
-  const recipientEmails = Array.isArray(email.to)
-    ? email.to.map(normalizeEmailAddress).filter(Boolean)
-    : [normalizeEmailAddress(email.to)].filter(Boolean);
-  const recipientDisplay = recipientEmails.length ? recipientEmails.join(', ') : 'Unknown recipient';
+  const senderEmail = email.from?.address || (typeof email.from === 'string' ? email.from : '') || '';
   const senderInitial = (senderName.charAt(0) || 'U').toUpperCase();
 
   return (
@@ -201,7 +176,7 @@ export default function EmailView({
 
           <button
             onClick={() => onReply?.({
-              to: senderEmail || '',
+              to: senderEmail || senderName,
               subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
               body: `\n\n--- Original Message ---\nFrom: ${senderName} <${senderEmail}>\nSubject: ${email.subject}\n\n${email.textBody || email.snippet || ''}`,
             })}
@@ -278,7 +253,7 @@ export default function EmailView({
                   )}
                 </div>
                 <p className="text-[11px] text-text-tertiary mt-0.5">
-                  to <span className="font-medium text-text-secondary">{recipientDisplay}</span>
+                  to <span className="font-medium text-text-secondary">me</span>
                 </p>
               </div>
             </div>
