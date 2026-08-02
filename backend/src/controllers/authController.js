@@ -1,13 +1,10 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { OAuth2Client } = require('google-auth-library');
 const { sendWelcomeEmail } = require('../services/welcomeService');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -126,9 +123,8 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid email/username or password' });
     }
 
-    // Check if account has a password or was created via Google OAuth
     if (!user.passwordHash) {
-      return res.status(400).json({ message: 'This account was created with Google. Please use Sign in with Google.' });
+      return res.status(400).json({ message: 'Invalid credentials. Please set or reset your password.' });
     }
 
     // Check password
@@ -147,96 +143,6 @@ exports.login = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Google OAuth login
-exports.googleAuth = async (req, res) => {
-  try {
-    const { tokenId } = req.body;
-
-    // Verify Google token
-    const ticket = await googleClient.verifyIdToken({
-      idToken: tokenId,
-      audience: GOOGLE_CLIENT_ID
-    });
-
-    const payload = ticket.getPayload();
-    const { email, email_verified, name, given_name, family_name, picture, sub: googleId } = payload;
-
-    // Check if email is verified
-    if (!email_verified) {
-      return res.status(400).json({ message: 'Google email not verified' });
-    }
-
-    // Check if user already exists
-    let user = await User.findOne({ email });
-    let isNewUser = false;
-
-    if (!user) {
-      // Create new user
-      isNewUser = true;
-
-      // Generate username from email
-      let username = email.split('@')[0].replace(/[^a-z0-9._-]/g, '');
-      let baseUsername = username;
-      let counter = 0;
-      while (await User.findOne({ username })) {
-        counter++;
-        username = `${baseUsername}${counter}`;
-      }
-
-      user = new User({
-        email,
-        username,
-        firstName: given_name || '',
-        lastName: family_name || '',
-        name: name || [given_name, family_name].filter(Boolean).join(' ') || username,
-        avatar: picture || '',
-        googleId,
-        passwordHash: null // OAuth-only user
-      });
-
-      await user.save();
-
-      // Send welcome email to new Google OAuth user
-      await sendWelcomeEmail(user);
-    } else {
-      if (!user.googleId) {
-        user.googleId = googleId;
-      }
-      if (!user.avatar && picture) {
-        user.avatar = picture;
-      }
-      await user.save();
-    }
-
-    // Generate token
-    const token = generateToken(user._id);
-
-    res.json({
-      token,
-      user: {
-        ...formatUserResponse(user),
-        isNewUser
-      }
-    });
-  } catch (error) {
-    console.error('Google auth error:', error);
-    res.status(401).json({ message: 'Invalid Google token' });
-  }
-};
-
-// Google OAuth Callback Handler (Passport)
-exports.googleCallback = (req, res) => {
-  try {
-    const token = generateToken(req.user._id);
-    const frontendUrl = process.env.FRONTEND_URL || 'https://broo-email.vercel.app';
-    res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
-  } catch (error) {
-    console.error('Google Callback Error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'https://broo-email.vercel.app';
-    res.redirect(`${frontendUrl}/login?error=auth_failed`);
   }
 };
 
