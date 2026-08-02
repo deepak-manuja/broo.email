@@ -34,7 +34,6 @@ export default function ComposePanel({ onClose, onSent, initialData = {} }) {
 
   const handleFiles = (newFiles) => {
     const fileArray = Array.from(newFiles);
-    // Limit to 25MB total or individual
     setFiles((prev) => [...prev, ...fileArray]);
   };
 
@@ -51,12 +50,10 @@ export default function ComposePanel({ onClose, onSent, initialData = {} }) {
   }, []);
 
   const handleKeyDown = (e) => {
-    // Ctrl+Enter or Cmd+Enter to send
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       handleSend();
     }
-    // Escape to close
     if (e.key === 'Escape') {
       onClose();
     }
@@ -106,50 +103,46 @@ export default function ComposePanel({ onClose, onSent, initialData = {} }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:justify-end sm:p-4 bg-black/40 backdrop-blur-xs transition-all"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:justify-end sm:p-4 bg-black/40 transition-all"
       onKeyDown={handleKeyDown}
     >
-      {/* Compose Window Container */}
       <div
         className={`w-full bg-bg-card border border-border shadow-dropdown flex flex-col transition-all duration-200 overflow-hidden ${
           isMaximized
-            ? 'h-full max-h-screen sm:rounded-2xl sm:max-w-[900px] sm:h-[90vh]'
-            : 'h-[85vh] sm:h-[620px] max-w-full sm:max-w-[580px] rounded-t-2xl sm:rounded-2xl'
+            ? 'h-full max-h-screen sm:rounded-xl sm:max-w-[900px] sm:h-[90vh]'
+            : 'h-[85vh] sm:h-[580px] max-w-full sm:max-w-[560px] rounded-t-xl sm:rounded-xl'
         }`}
       >
-        {/* Top Title Bar */}
-        <div className="flex items-center justify-between px-4 py-3 bg-bg-sidebar border-b border-border select-none shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent" />
-            <h3 className="font-heading font-semibold text-xs sm:text-sm text-text-primary">
-              {subject ? subject : 'New Message'}
-            </h3>
-          </div>
+        {/* Title Bar */}
+        <div className="flex items-center justify-between px-3.5 py-2.5 bg-bg-sidebar border-b border-border select-none shrink-0">
+          <h3 className="font-mono text-xs text-text-primary">
+            {subject ? subject : '// new message'}
+          </h3>
 
           <div className="flex items-center gap-1">
             <button
               onClick={() => setIsMaximized(!isMaximized)}
-              className="p-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-hover hidden sm:inline-flex transition-colors cursor-pointer"
-              title={isMaximized ? 'Restore size' : 'Maximize window'}
+              className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-hover hidden sm:inline-flex transition-colors cursor-pointer"
+              title={isMaximized ? 'Restore' : 'Maximize'}
             >
-              {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              {isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </button>
             <button
               onClick={onClose}
-              className="p-1 rounded-md text-text-tertiary hover:text-danger hover:bg-danger-light transition-colors cursor-pointer"
+              className="p-1 rounded text-text-tertiary hover:text-danger transition-colors cursor-pointer"
               title="Close (Esc)"
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           </div>
         </div>
 
-        {/* Scrollable Fields */}
+        {/* Form Fields */}
         <div className="flex-1 flex flex-col overflow-y-auto bg-bg-card">
-          {/* To Field */}
-          <div className="border-b border-border-light px-4 py-2 flex items-center gap-3">
-            <label className="text-xs font-semibold text-text-tertiary w-12 shrink-0">
-              To
+          {/* To */}
+          <div className="border-b border-border-light px-3.5 py-2 flex items-center gap-2">
+            <label className="text-xs font-mono text-text-tertiary w-10 shrink-0">
+              to:
             </label>
             <input
               ref={toInputRef}
@@ -157,76 +150,74 @@ export default function ComposePanel({ onClose, onSent, initialData = {} }) {
               value={to}
               onChange={(e) => setTo(e.target.value)}
               placeholder="recipient@example.com"
-              className="flex-1 text-xs sm:text-sm bg-transparent border-none outline-none text-text-primary placeholder:text-text-tertiary"
+              className="flex-1 text-xs bg-transparent border-none outline-none text-text-primary placeholder:text-text-subtle font-mono"
             />
             {!showCc && (
               <button
                 type="button"
                 onClick={() => setShowCc(true)}
-                className="text-[11px] font-semibold text-text-tertiary hover:text-accent cursor-pointer transition-colors"
+                className="text-[11px] font-mono text-text-tertiary hover:text-text-primary cursor-pointer transition-colors"
               >
-                Cc
+                cc
               </button>
             )}
           </div>
 
-          {/* Cc Field (collapsible) */}
+          {/* Cc */}
           {showCc && (
-            <div className="border-b border-border-light px-4 py-2 flex items-center gap-3 fade-in">
-              <label className="text-xs font-semibold text-text-tertiary w-12 shrink-0">
-                Cc
+            <div className="border-b border-border-light px-3.5 py-2 flex items-center gap-2 fade-in">
+              <label className="text-xs font-mono text-text-tertiary w-10 shrink-0">
+                cc:
               </label>
               <input
                 type="text"
                 value={cc}
                 onChange={(e) => setCc(e.target.value)}
                 placeholder="cc@example.com"
-                className="flex-1 text-xs sm:text-sm bg-transparent border-none outline-none text-text-primary placeholder:text-text-tertiary"
+                className="flex-1 text-xs bg-transparent border-none outline-none text-text-primary placeholder:text-text-subtle font-mono"
               />
             </div>
           )}
 
-          {/* Subject Field */}
-          <div className="border-b border-border-light px-4 py-2 flex items-center gap-3">
-            <label className="text-xs font-semibold text-text-tertiary w-12 shrink-0">
-              Subject
+          {/* Subject */}
+          <div className="border-b border-border-light px-3.5 py-2 flex items-center gap-2">
+            <label className="text-xs font-mono text-text-tertiary w-10 shrink-0">
+              sub:
             </label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Email subject line"
-              className="flex-1 text-xs sm:text-sm bg-transparent border-none outline-none text-text-primary placeholder:text-text-tertiary font-medium"
+              placeholder="Subject"
+              className="flex-1 text-xs bg-transparent border-none outline-none text-text-primary placeholder:text-text-subtle font-medium"
             />
           </div>
 
-          {/* Body textarea */}
-          <div className="flex-1 p-4 min-h-[160px] flex flex-col">
+          {/* Body */}
+          <div className="flex-1 p-3.5 min-h-[160px] flex flex-col">
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Write your email here…"
-              className="w-full flex-1 text-xs sm:text-sm bg-transparent border-none outline-none resize-none text-text-primary placeholder:text-text-tertiary leading-relaxed font-sans"
+              className="w-full flex-1 text-xs sm:text-sm bg-transparent border-none outline-none resize-none text-text-primary placeholder:text-text-subtle leading-relaxed font-sans"
             />
           </div>
 
-          {/* Drag & drop upload box */}
+          {/* Dropzone */}
           <div
-            className={`mx-4 mb-3 border-2 border-dashed rounded-xl p-3 text-center transition-all cursor-pointer ${
+            className={`mx-3.5 mb-3 border border-dashed rounded-lg p-2.5 text-center transition-colors cursor-pointer ${
               dragOver
-                ? 'border-accent bg-accent-light/50 scale-[0.99]'
-                : 'border-border-light hover:border-accent/40 bg-bg/50'
+                ? 'border-pop bg-pop-light'
+                : 'border-border hover:border-text-tertiary bg-bg'
             }`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-            <div className="flex items-center justify-center gap-2 text-text-tertiary">
-              <Paperclip size={14} className="text-accent" />
-              <span className="text-xs">
-                Drag files here or <span className="text-accent font-semibold">browse computer</span>
-              </span>
+            <div className="flex items-center justify-center gap-1.5 text-text-tertiary text-xs">
+              <Paperclip size={13} className="text-text-secondary" />
+              <span>Attach files (drag or click)</span>
             </div>
             <input
               ref={fileInputRef}
@@ -240,24 +231,24 @@ export default function ComposePanel({ onClose, onSent, initialData = {} }) {
             />
           </div>
 
-          {/* Attached files preview */}
+          {/* Attached Files */}
           {files.length > 0 && (
-            <div className="px-4 pb-3 flex flex-wrap gap-2">
+            <div className="px-3.5 pb-3 flex flex-wrap gap-1.5">
               {files.map((f, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-2 px-2.5 py-1.5 bg-bg rounded-lg border border-border-light text-xs font-medium text-text-primary shadow-soft"
+                  className="flex items-center gap-1.5 px-2 py-1 bg-bg rounded border border-border text-xs text-text-primary font-mono"
                 >
-                  <FileIcon size={13} className="text-accent shrink-0" />
-                  <span className="truncate max-w-[140px] text-[11px]">{f.name}</span>
-                  <span className="text-[10px] text-text-tertiary font-mono">
+                  <FileIcon size={12} className="text-text-secondary shrink-0" />
+                  <span className="truncate max-w-[120px] text-[11px]">{f.name}</span>
+                  <span className="text-[10px] text-text-tertiary">
                     {(f.size / 1024).toFixed(0)}K
                   </span>
                   <button
                     onClick={() => removeFile(i)}
-                    className="p-0.5 text-text-tertiary hover:text-danger cursor-pointer transition-colors"
+                    className="p-0.5 text-text-tertiary hover:text-danger cursor-pointer"
                   >
-                    <X size={12} />
+                    <X size={11} />
                   </button>
                 </div>
               ))}
@@ -265,49 +256,40 @@ export default function ComposePanel({ onClose, onSent, initialData = {} }) {
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-4 py-3 bg-bg-sidebar border-t border-border flex items-center justify-between gap-3 shrink-0">
+        {/* Footer */}
+        <div className="px-3.5 py-2.5 bg-bg-sidebar border-t border-border flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={handleSend}
               disabled={sending}
-              className="flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs sm:text-sm font-semibold shadow-soft hover:shadow-card transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="flex items-center gap-1.5 px-4 py-2 bg-accent text-bg hover:bg-accent-hover rounded-md text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-              <span>{sending ? 'Sending…' : 'Send Message'}</span>
+              {sending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+              <span>{sending ? 'Sending…' : 'Send'}</span>
             </button>
 
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="p-2 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-text-tertiary hover:text-text-primary rounded transition-colors cursor-pointer"
               title="Attach files"
             >
-              <Paperclip size={16} />
+              <Paperclip size={15} />
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {sending && uploadProgress > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="w-20 sm:w-28 h-1.5 bg-border rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent rounded-full transition-all"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-                <span className="text-[11px] text-text-tertiary font-mono">
-                  {uploadProgress}%
-                </span>
-              </div>
+              <span className="text-[11px] text-text-tertiary font-mono">
+                {uploadProgress}%
+              </span>
             )}
-
             <button
               onClick={onClose}
-              className="p-2 text-text-tertiary hover:text-danger hover:bg-danger-light rounded-lg transition-colors cursor-pointer"
-              title="Discard draft"
+              className="p-1.5 text-text-tertiary hover:text-danger transition-colors cursor-pointer"
+              title="Discard (Esc)"
             >
-              <Trash2 size={16} />
+              <Trash2 size={14} />
             </button>
           </div>
         </div>
@@ -315,4 +297,3 @@ export default function ComposePanel({ onClose, onSent, initialData = {} }) {
     </div>
   );
 }
-

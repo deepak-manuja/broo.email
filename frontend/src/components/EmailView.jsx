@@ -8,8 +8,6 @@ import {
   Download,
   Paperclip,
   Loader2,
-  Mail,
-  ShieldCheck,
   Send,
   Copy
 } from 'lucide-react';
@@ -82,7 +80,6 @@ export default function EmailView({
     emailAPI.getById(emailId)
       .then((res) => {
         setEmail(res.data);
-        // Mark as read locally if not already
         if (!res.data.isRead) {
           emailAPI.markAsRead(emailId, true).catch(() => {});
         }
@@ -94,14 +91,9 @@ export default function EmailView({
   if (!emailId) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12 bg-bg select-none fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-bg-card border border-border flex items-center justify-center mb-4 shadow-soft">
-          <Mail size={28} className="text-text-tertiary" />
-        </div>
-        <h3 className="font-heading font-semibold text-text-primary text-base mb-1">
-          No email selected
-        </h3>
-        <p className="text-xs text-text-tertiary max-w-[260px] leading-relaxed">
-          Choose a conversation from the list to read messages, view attachments, or send a reply.
+        <p className="font-mono text-xs text-text-tertiary mb-1">// no message selected</p>
+        <p className="text-xs text-text-tertiary max-w-[220px] leading-relaxed">
+          Select a thread from the list or press <kbd className="font-mono bg-bg-card border border-border px-1 py-0.5 rounded text-[11px]">C</kbd> to compose.
         </p>
       </div>
     );
@@ -109,9 +101,9 @@ export default function EmailView({
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-bg gap-3">
-        <Loader2 size={28} className="animate-spin text-accent" />
-        <p className="text-xs text-text-tertiary font-medium">Loading message…</p>
+      <div className="flex-1 flex flex-col items-center justify-center bg-bg gap-2">
+        <Loader2 size={20} className="animate-spin text-text-tertiary" />
+        <p className="font-mono text-xs text-text-tertiary">loading message…</p>
       </div>
     );
   }
@@ -119,10 +111,10 @@ export default function EmailView({
   if (!email) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-bg text-center p-6">
-        <p className="text-text-secondary font-medium text-sm mb-2">Message unavailable</p>
+        <p className="font-mono text-xs text-text-secondary mb-3">// message unavailable</p>
         <button
           onClick={onBack}
-          className="px-3 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-primary hover:bg-bg-hover cursor-pointer"
+          className="px-3 py-1.5 bg-accent text-bg rounded-md text-xs font-medium cursor-pointer"
         >
           Return to list
         </button>
@@ -140,7 +132,6 @@ export default function EmailView({
 
   const cardTitle = isSentFolder ? (recipientsListText || 'Recipient') : senderName;
   const cardEmail = isSentFolder ? firstRecipientEmail : senderEmail;
-  const cardInitial = (cardTitle.replace(/^[<"'\s]+/, '').charAt(0) || 'U').toUpperCase();
 
   const rawHtml = email.htmlBody || (isHTML(email.body) ? email.body : '');
   const hasHtml = Boolean(rawHtml);
@@ -180,7 +171,7 @@ export default function EmailView({
       formData.append('body', quickReplyText.trim());
 
       await emailAPI.send(formData);
-      toast.success('Reply sent successfully!');
+      toast.success('Reply sent!');
       setQuickReplyText('');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send reply');
@@ -192,22 +183,21 @@ export default function EmailView({
   const copyEmailAddress = (address) => {
     if (address) {
       navigator.clipboard.writeText(address);
-      toast.success('Email address copied!');
+      toast.success('Copied to clipboard');
     }
   };
 
   return (
     <div className="flex-1 flex flex-col bg-bg overflow-hidden fade-in h-full">
-      {/* Top Action Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-bg-card shadow-soft z-10 shrink-0">
+      {/* Action Toolbar */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg shrink-0">
         <div className="flex items-center gap-2">
-          {/* Back button (Mobile & Tablet) */}
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer md:hidden"
-            title="Back to inbox"
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-text-secondary hover:text-text-primary md:hidden cursor-pointer"
+            title="Back"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={14} />
             <span>Back</span>
           </button>
         </div>
@@ -215,12 +205,12 @@ export default function EmailView({
         <div className="flex items-center gap-1">
           <button
             onClick={handleStar}
-            className={`p-2 rounded-lg hover:bg-bg-hover transition-colors cursor-pointer ${
+            className={`p-1.5 rounded hover:bg-bg-hover transition-colors cursor-pointer ${
               email.isStarred ? 'text-star' : 'text-text-tertiary hover:text-text-primary'
             }`}
             title={email.isStarred ? 'Unstar' : 'Star message'}
           >
-            <Star size={16} fill={email.isStarred ? 'currentColor' : 'none'} />
+            <Star size={15} fill={email.isStarred ? 'currentColor' : 'none'} />
           </button>
 
           <button
@@ -229,10 +219,10 @@ export default function EmailView({
               subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
               body: `\n\n--- Original Message ---\nFrom: ${senderName} <${senderEmail}>\nSubject: ${email.subject}\n\n${email.textBody || email.snippet || ''}`,
             })}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
             title="Reply"
           >
-            <Reply size={15} />
+            <Reply size={14} />
             <span className="hidden sm:inline">Reply</span>
           </button>
 
@@ -242,58 +232,50 @@ export default function EmailView({
               subject: email.subject?.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject || ''}`,
               body: `\n\n---------- Forwarded message ---------\nFrom: ${senderName} <${senderEmail}>\nSubject: ${email.subject}\n\n${email.textBody || email.snippet || ''}`,
             })}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
             title="Forward"
           >
-            <Forward size={15} />
+            <Forward size={14} />
             <span className="hidden sm:inline">Forward</span>
           </button>
 
-          <div className="w-px h-4 bg-border-light mx-1" />
+          <div className="w-px h-3.5 bg-border mx-1" />
 
           <button
             onClick={handleDelete}
-            className="p-2 rounded-lg text-text-tertiary hover:text-danger hover:bg-danger-light transition-colors cursor-pointer"
-            title="Move to trash"
+            className="p-1.5 rounded text-text-tertiary hover:text-danger hover:bg-danger-light transition-colors cursor-pointer"
+            title="Delete message"
           >
-            <Trash2 size={16} />
+            <Trash2 size={15} />
           </button>
         </div>
       </div>
 
-      {/* Main Email Scrollable Body */}
+      {/* Main Email Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[780px] mx-auto px-4 sm:px-6 md:px-8 py-6 space-y-6">
-          {/* Subject Line */}
-          <div>
-            <h1 className="font-heading font-bold text-lg sm:text-2xl text-text-primary leading-tight mb-2">
-              {email.subject || '(No Subject)'}
+        <div className="max-w-[760px] mx-auto px-4 sm:px-6 py-6 space-y-5">
+          {/* Subject & Date Header */}
+          <div className="border-b border-border pb-4">
+            <h1 className="font-heading font-bold text-lg sm:text-xl text-text-primary leading-tight mb-2">
+              {email.subject || '(no subject)'}
             </h1>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-tertiary">
-              <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                <ShieldCheck size={12} />
-                <span>Verified @broo.email</span>
-              </span>
-              <span>&bull;</span>
+            <div className="flex items-center gap-2 text-xs text-text-tertiary font-mono">
               <span>{formatFullDate(email.receivedAt || email.createdAt || email.date)}</span>
             </div>
           </div>
 
-          {/* Sender & Recipient Card */}
-          <div className="flex items-start justify-between gap-3 p-3.5 sm:p-4 rounded-xl bg-bg-card border border-border shadow-soft">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-accent-dark text-white flex items-center justify-center font-heading font-bold text-sm shrink-0 shadow-soft">
-                {cardInitial}
-              </div>
+          {/* Sender & Recipient Information */}
+          <div className="p-3 rounded-lg bg-bg-card border border-border">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-xs sm:text-sm text-text-primary truncate">
-                    {isSentFolder ? `To: ${recipientsListText || 'Recipient'}` : senderName}
+                  <span className="font-semibold text-xs text-text-primary truncate">
+                    {cardTitle}
                   </span>
                   {cardEmail && (
                     <button
                       onClick={() => copyEmailAddress(cardEmail)}
-                      className="text-[11px] text-text-tertiary hover:text-accent font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                      className="text-[11px] text-text-tertiary hover:text-text-primary font-mono flex items-center gap-1 cursor-pointer transition-colors"
                       title="Copy email address"
                     >
                       <span>&lt;{cardEmail}&gt;</span>
@@ -313,10 +295,10 @@ export default function EmailView({
           </div>
 
           {/* Email Body Content */}
-          <div className="p-4 sm:p-6 bg-bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
+          <div className="p-4 sm:p-5 bg-bg-card rounded-lg border border-border overflow-hidden">
             {hasHtml ? (
               <div
-                className="email-content-rendered max-w-none text-text-primary text-xs sm:text-sm leading-relaxed break-words [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_img]:shadow-sm [&_a]:text-accent [&_a]:underline [&_table]:w-full [&_table]:border-collapse"
+                className="email-content-rendered max-w-none text-text-primary text-xs sm:text-sm leading-relaxed break-words [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded [&_img]:my-2 [&_a]:text-pop [&_a]:underline [&_table]:w-full [&_table]:border-collapse"
                 dangerouslySetInnerHTML={{ __html: rawHtml }}
               />
             ) : (
@@ -328,14 +310,14 @@ export default function EmailView({
 
           {/* Attachments Section */}
           {email.attachments && email.attachments.length > 0 && (
-            <div className="p-4 rounded-xl bg-bg-card border border-border shadow-soft">
-              <div className="flex items-center gap-2 mb-3">
-                <Paperclip size={14} className="text-accent" />
-                <span className="text-xs font-semibold text-text-primary">
+            <div className="p-3.5 rounded-lg bg-bg-card border border-border">
+              <div className="flex items-center gap-1.5 mb-2.5">
+                <Paperclip size={13} className="text-text-secondary" />
+                <span className="font-mono text-xs font-medium text-text-primary">
                   Attachments ({email.attachments.length})
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {email.attachments.map((att, i) => {
                   const downloadHref = att.storageUrl
                     ? att.storageUrl.startsWith('http')
@@ -349,21 +331,21 @@ export default function EmailView({
                       target="_blank"
                       rel="noopener noreferrer"
                       download={att.filename}
-                      className="flex items-center gap-3 p-3 bg-bg rounded-xl border border-border-light hover:border-accent hover:bg-accent-light/40 transition-all group no-underline"
+                      className="flex items-center gap-2.5 p-2.5 bg-bg rounded-md border border-border hover:border-text-tertiary transition-colors group no-underline"
                     >
-                    <div className="p-2 rounded-lg bg-bg-card border border-border-light text-text-tertiary group-hover:text-accent shrink-0">
-                      <Download size={14} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-text-primary truncate">
-                        {att.filename}
-                      </p>
-                      {att.size && (
-                        <p className="text-[10px] text-text-tertiary font-mono">
-                          {(att.size / 1024).toFixed(0)} KB
+                      <div className="p-1 rounded bg-bg-card border border-border text-text-tertiary group-hover:text-text-primary shrink-0">
+                        <Download size={13} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-text-primary truncate">
+                          {att.filename}
                         </p>
-                      )}
-                    </div>
+                        {att.size && (
+                          <p className="text-[10px] text-text-tertiary font-mono">
+                            {(att.size / 1024).toFixed(0)} KB
+                          </p>
+                        )}
+                      </div>
                     </a>
                   );
                 })}
@@ -372,30 +354,30 @@ export default function EmailView({
           )}
 
           {/* Quick Reply Box */}
-          <div className="p-4 rounded-xl bg-bg-card border border-border shadow-soft">
+          <div className="p-3.5 rounded-lg bg-bg-card border border-border">
             <h4 className="text-xs font-semibold text-text-primary mb-2 flex items-center gap-1.5">
-              <Reply size={13} className="text-accent" />
+              <Reply size={13} className="text-text-secondary" />
               <span>Quick Reply</span>
             </h4>
-            <form onSubmit={handleQuickReply} className="space-y-3">
+            <form onSubmit={handleQuickReply} className="space-y-2.5">
               <textarea
                 value={quickReplyText}
                 onChange={(e) => setQuickReplyText(e.target.value)}
                 placeholder={`Reply to ${senderName}…`}
                 rows={3}
-                className="w-full p-3 text-xs bg-bg rounded-xl border border-border text-text-primary placeholder:text-text-tertiary focus:border-accent focus:bg-bg-card transition-all resize-none"
+                className="w-full p-2.5 text-xs bg-bg rounded-md border border-border text-text-primary placeholder:text-text-subtle focus:border-text-tertiary transition-colors outline-none resize-none font-sans"
               />
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-text-tertiary">
-                  Or press <strong className="font-semibold text-text-secondary">Reply</strong> in toolbar for full editor
+                <span className="text-[11px] text-text-tertiary">
+                  Press <kbd className="font-mono bg-bg border border-border px-1 py-0.5 rounded text-[10px]">Ctrl+Enter</kbd> or click send
                 </span>
                 <button
                   type="submit"
                   disabled={sendingQuickReply || !quickReplyText.trim()}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-xs font-semibold hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-soft"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-accent text-bg rounded-md text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  {sendingQuickReply ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                  <span>Send Reply</span>
+                  {sendingQuickReply ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                  <span>Send</span>
                 </button>
               </div>
             </form>
@@ -405,4 +387,3 @@ export default function EmailView({
     </div>
   );
 }
-

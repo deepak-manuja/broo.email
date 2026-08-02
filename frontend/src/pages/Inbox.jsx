@@ -141,10 +141,10 @@ export default function Inbox() {
         <div className="fixed right-5 bottom-6 z-40 md:hidden">
           <button
             onClick={handleOpenCompose}
-            className="flex items-center gap-2 px-4 py-3.5 bg-accent text-white rounded-full font-heading font-semibold text-sm shadow-card hover:bg-accent-hover active:scale-95 transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-3 bg-accent text-bg rounded-full font-medium text-xs shadow-card hover:bg-accent-hover active:scale-95 transition-all cursor-pointer"
             aria-label="Compose new message"
           >
-            <PenSquare size={18} />
+            <PenSquare size={16} />
             <span>Compose</span>
           </button>
         </div>
