@@ -17,15 +17,16 @@ const generateToken = (userId) => {
 exports.register = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = (email || '').toLowerCase().trim();
 
     // Check if user already exists
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email: normalizedEmail });
     if (user) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: 'User with this email already exists' });
     }
 
     // Generate username from email (part before @)
-    let username = email.split('@')[0];
+    let username = normalizedEmail.split('@')[0];
 
     // Ensure username is unique
     let baseUsername = username;
@@ -37,9 +38,8 @@ exports.register = async (req, res) => {
 
     // Create new user
     user = new User({
-      email,
-      username,
-      passwordHash: null // Will be set below
+      email: normalizedEmail,
+      username
     });
 
     // Hash password
@@ -69,17 +69,23 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = (email || '').toLowerCase().trim();
 
-    // Check if user exists
-    const user = await User.findOne({ email });
+    // Check if user exists (explicitly select passwordHash since it is excluded by default in schema)
+    const user = await User.findOne({ email: normalizedEmail }).select('+passwordHash');
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    // Check if account has a password or was created via Google OAuth
+    if (!user.passwordHash) {
+      return res.status(400).json({ message: 'This account was created with Google. Please use Sign in with Google.' });
     }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ message: 'Invalid email or password' });
     }
 
     // Generate token
