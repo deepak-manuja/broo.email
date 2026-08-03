@@ -10,32 +10,18 @@ Building a real email service means implementing the actual SMTP protocol — no
 
 It's tested against real mail — Gmail sends to this domain, and it works.
 ## Architecture
-Internet (e.g. Gmail)
-│ SMTP (port 25)
-▼
-┌─────────────────────────────┐
-│ AWS EC2 (Ubuntu) │
-│ ┌───────────────────────┐ │
-│ │ Custom SMTP Server │ │──▶ MongoDB Atlas
-│ │ (smtp-server + mailparser) │ (email storage,
-│ ├───────────────────────┤ │ user accounts)
-│ │ Express REST API │ │
-│ │ (Auth, CRUD, Storage) │ │──▶ Resend API
-│ ├───────────────────────┤ │ (outbound sending)
-│ │ Nginx + Let's Encrypt │ │
-│ │ (HTTPS reverse proxy) │ │
-│ └───────────────────────┘ │
-│ Managed by PM2 (auto-restart,│
-│ survives reboot) │
-└─────────────────────────────┘
-▲ HTTPS (api.broo.email)
-│
-┌─────────────────────┐
-│ React Frontend │
-│ (Vercel, HTTPS) │
-│ Socket.io for │
-│ real-time inbox │
-└─────────────────────┘
+
+**Inbound flow:** Gmail (or any mail server) → SMTP (port 25) → AWS EC2 → Custom SMTP server (smtp-server + mailparser) → MongoDB Atlas
+
+**Backend (on EC2):**
+- Custom SMTP server — receives real internet email
+- Express REST API — auth, email CRUD, storage limits
+- Nginx + Let's Encrypt — HTTPS reverse proxy
+- PM2 — keeps everything running, auto-restarts on crash or reboot
+
+**Outbound flow:** Backend → Resend API (SPF/DKIM verified) → recipient's mail server
+
+**Frontend:** React app on Vercel (HTTPS) → talks to backend over `api.broo.email` → Socket.io for real-time inbox updates
 
 ## Features
 
